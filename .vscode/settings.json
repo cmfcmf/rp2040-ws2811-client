@@ -18,6 +18,10 @@
       "*.rst": "asm",
       "*.pio": "asm-intel-x86-generic",
       "optional": "cpp",
-      "tuple": "cpp"
+      "tuple": "cpp",
+      "array": "cpp",
+      "deque": "cpp",
+      "string": "cpp",
+      "vector": "cpp"
     },
 }

@@ -36,12 +36,13 @@ int main()
 
     multicore_launch_core1(core1_entry);
 
-    const auto ws2811 = WS2811Client();
+    auto ws2811 = WS2811Client();
 
     while (true) {
-        for (uint i = 0; i < ws2811.getNumLEDs(); i++) {
-            printf("[%7u] LED %u: ", time_us_32() / 1000, i);
-            print_led_state(ws2811.getLED(i));
+        const auto leds = ws2811.getLEDsAtomic();
+        for (auto it = leds.begin(); it != leds.end(); it++) {
+            printf("[%7u] LED %u: ", time_us_32() / 1000, std::distance(leds.begin(), it));
+            print_led_state(*it);
         }
         sleep_ms(500);
         tight_loop_contents();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <array>
 #include "hardware/pio.h"
 
 #include "pico-my-project.hpp"
@@ -23,8 +24,10 @@ private:
   uint sm;
   pio_sm_config sm_conf;
 
-  uint ws2811_dma_gather_chan;
-  uint ws2811_dma_ctrl_chan;
+  uint dma_ctrl_chan;
+  uint dma_gather_chan;
+  dma_channel_config dma_ctrl_conf;
+  dma_channel_config dma_gather_conf;
 
   volatile uint32_t led_state[NUM_LEDS_TO_EMULATE];
   const volatile uint32_t *led_state_address;
@@ -58,8 +61,8 @@ private:
   }
 
   inline void initDMA() {
-    dma_channel_config dma_ctrl_conf = dma_channel_get_default_config(ws2811_dma_ctrl_chan);
-    dma_channel_config dma_gather_conf = dma_channel_get_default_config(ws2811_dma_gather_chan);
+    dma_ctrl_conf = dma_channel_get_default_config(dma_ctrl_chan);
+    dma_gather_conf = dma_channel_get_default_config(dma_gather_chan);
 
     // CTRL
     {
@@ -67,9 +70,9 @@ private:
       channel_config_set_read_increment(&dma_ctrl_conf, false);
       channel_config_set_write_increment(&dma_ctrl_conf, false);
       dma_channel_configure(
-        ws2811_dma_ctrl_chan,
+        dma_ctrl_chan,
         &dma_ctrl_conf,
-        &dma_hw->ch[ws2811_dma_gather_chan].al2_write_addr_trig, // write
+        &dma_hw->ch[dma_gather_chan].al2_write_addr_trig, // write
         &led_state_address,                                      // read
         1,
         false
@@ -82,9 +85,9 @@ private:
       channel_config_set_read_increment(&dma_gather_conf, false);
       channel_config_set_write_increment(&dma_gather_conf, true);
       channel_config_set_dreq(&dma_gather_conf, pio_get_dreq(pio, sm, false));
-      channel_config_set_chain_to(&dma_gather_conf, ws2811_dma_ctrl_chan);
+      channel_config_set_chain_to(&dma_gather_conf, dma_ctrl_chan);
       dma_channel_configure(
-        ws2811_dma_gather_chan,
+        dma_gather_chan,
         &dma_gather_conf,
         &led_state[0], // write
         &pio->rxf[sm], // read
@@ -93,7 +96,7 @@ private:
       );
     }
 
-    dma_channel_start(ws2811_dma_ctrl_chan);
+    dma_channel_start(dma_ctrl_chan);
   }
 
   inline void runSM() {
@@ -124,13 +127,23 @@ private:
     pio_sm_set_enabled(pio, sm, true);
   }
 
+  inline const LED ledStateToLED(const uint32_t val) const {
+    return {
+      .colors = {
+        .r = (uint8_t)((val >>  8) & 0xFF),
+        .g = (uint8_t)((val >> 16) & 0xFF),
+        .b = (uint8_t)((val >>  0) & 0xFF)
+      }
+    };
+  }
+
 public:
   WS2811Client() : led_state_address(&led_state[0]) {
     pio = pio0;
     offset = pio_add_program(pio, &ws2811_program);
     sm = pio_claim_unused_sm(pio, true);
-    ws2811_dma_gather_chan = dma_claim_unused_channel(true);
-    ws2811_dma_ctrl_chan = dma_claim_unused_channel(true);
+    dma_gather_chan = dma_claim_unused_channel(true);
+    dma_ctrl_chan = dma_claim_unused_channel(true);
 
     initGPIO();
     initSMConfig();
@@ -139,15 +152,21 @@ public:
   }
 
   const LED getLED(uint idx) const {
-    const auto val = led_state[idx];
+    return ledStateToLED(led_state[idx]);
+  }
 
-    return {
-      .colors = {
-        .r = (uint8_t)((val >>  8) & 0xFF),
-        .g = (uint8_t)((val >> 16) & 0xFF),
-        .b = (uint8_t)((val >>  0) & 0xFF)
-      }
-    };
+  const std::array<LED, NUM_LEDS_TO_EMULATE> getLEDsAtomic() {
+    auto leds = std::array<LED, NUM_LEDS_TO_EMULATE>();
+
+    channel_config_set_chain_to(&dma_gather_conf, dma_gather_chan);
+    dma_channel_wait_for_finish_blocking(dma_gather_chan);
+    for (uint i = 0; i < NUM_LEDS_TO_EMULATE; i++) {
+      leds[i] = ledStateToLED(led_state[i]);
+    }
+    channel_config_set_chain_to(&dma_gather_conf, dma_ctrl_chan);
+    dma_channel_start(dma_ctrl_chan);
+
+    return leds;
   }
 
   const uint getNumLEDs() const {
