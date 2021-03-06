@@ -1,0 +1,23 @@
+{
+  "cmake.configureOnOpen": false,
+  "cmake.statusbar.advanced": {
+    "debug" : {
+      "visibility": "hidden"
+              },    "launch" : {
+      "visibility": "hidden"
+               },
+    "build" : {
+     // "visibility": "hidden"
+               },
+    "buildTarget" : {
+      "visibility": "hidden"
+               },
+    },
+    "files.associations": {
+      "*.lss": "asm",
+      "*.rst": "asm",
+      "*.pio": "asm-intel-x86-generic",
+      "optional": "cpp",
+      "tuple": "cpp"
+    },
+}

@@ -1,0 +1,72 @@
+; https://datasheets.raspberrypi.org/rp2040/rp2040-datasheet.pdf
+; 3.5.6.3 Input Synchronisers
+; To protect PIO from metastabilities, each GPIO input is equipped with a standard
+; 2-flipflop synchroniser. This adds two cycles of latency to input sampling [...]
+
+.program ws2811
+.side_set 1 opt
+
+.define CYCLE_TIME_NS       5        ; cycle time of this statemachine
+.define MIN_RESET_LENGTH_NS 10000    ; length of a WS2811 reset pulse
+.define PUBLIC NUM_LEDS_TO_EMULATE 2 ; number of WS2811 chips to emulate
+
+
+; if y != 0, then pass through all bits until we get a reset pulse
+; if y == 0, then just wait for a reset pulse
+.wrap_target
+pass_through_wait_for_next_bit:
+    set x 31            side 1
+    mov osr x           side 0
+    out null, 5 ; shift left 5 times
+    mov x, osr  ; x = 31 * 2^5 = 992
+pass_through_wait_for_next_bit_loop:
+    jmp pin pass_through                              ; start of next bit detected -> pass through
+    jmp x-- pass_through_wait_for_next_bit_loop       ; loop until a reset pulse is detected
+
+    jmp pass_through_wait_for_next_bit
+
+; reset pulse detected -> start reading bits
+
+read_bits:
+    set y 24    side 1
+    mov osr y   side 0
+    out null, 1 ; shift left 1 times
+    mov y, osr  ; y = 24 * 2^1 = 48
+    jmp y-- read_bits_rearm_reset_counter ; y = 47 (always jumps to read_bits_rearm_reset_counter)
+
+read_bits_rearm_reset_counter:
+    set x 31
+    mov osr x
+    out null, 5 ; shift left 5 times
+    mov x, osr  ; x = 31 * 2^5 = 992
+
+wait_bit:             ; wait for bit to arrive
+    jmp pin bit_start ; bit pulse started!
+    jmp x-- wait_bit  ; if x > 0, continue waiting for next bit, otherwise fall through
+    jmp read_bits     ; reset pulse detected -> read bits again
+
+bit_start:
+    set x 8            [3]
+delay_loop:
+    nop                [5]
+    jmp x-- delay_loop [5]
+    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1 - 2] ; wait 495ns to 500ns WARNING: The parentheses are absolutely necessary!
+    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1]     ; continue waiting
+    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1]     ; continue waiting
+    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1]     ; continue waiting
+    in pins, 1                                   ; shift 1 or 0 into result
+    wait 0 pin 0                                 ; wait for pulse end
+    jmp y-- read_bits_rearm_reset_counter        ; wait for next bit
+    ; bits are all read now
+    set y 1 ; set y flag to pass through all remaining bits
+    .wrap
+
+
+
+pass_through:
+    jmp !y skip_pass_through           ; if y == 0, do not pass through
+    set pins 1                         ;
+skip_pass_through:
+    wait 0 pin 0                       ; wait for low
+    set pins 0                         ;
+    jmp pass_through_wait_for_next_bit ; wait for next pass through bit, reset reset pulse counter
