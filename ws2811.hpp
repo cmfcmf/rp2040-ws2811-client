@@ -38,8 +38,10 @@ private:
     pio_sm_set_consecutive_pindirs(pio, sm, DATA_IN_PIN, 1, GPIO_IN);
     pio_gpio_init(pio, DATA_IN_PIN);
 
+#ifdef SIDESET_PIN
     pio_sm_set_consecutive_pindirs(pio, sm, SIDESET_PIN, 1, GPIO_OUT);
     pio_gpio_init(pio, SIDESET_PIN);
+#endif
 
     pio_sm_set_consecutive_pindirs(pio, sm, DATA_OUT_PIN, 1, GPIO_OUT);
     pio_gpio_init(pio, DATA_OUT_PIN);
@@ -52,8 +54,9 @@ private:
     sm_config_set_jmp_pin(&sm_conf, DATA_IN_PIN);
     sm_config_set_out_pins(&sm_conf, DATA_OUT_PIN, 1);
     sm_config_set_set_pins(&sm_conf, DATA_OUT_PIN, 1);
-
+#ifdef SIDESET_PIN
     sm_config_set_sideset_pins(&sm_conf, SIDESET_PIN);
+#endif
 
     sm_config_set_in_shift(&sm_conf, false, true, 24); // shift left, auto push after 24 bit
     sm_config_set_out_shift(&sm_conf, false, false, 0); // shift left, no auto pull
