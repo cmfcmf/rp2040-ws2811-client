@@ -55,13 +55,6 @@ private:
     pio_gpio_init(pio, DATA_OUT_PIN);
   }
 
-  inline float get_sm_clkdiv() {
-    const auto div = (float)clock_get_hz(clk_sys) * /* period in ns */ 5 / 1000000000.0;
-
-    printf("CLK divider: %f\n", div);
-    return div;
-  }
-
   inline void initSMConfig() {
     sm_conf = ws2811_program_get_default_config(offset);
 
@@ -76,7 +69,7 @@ private:
     sm_config_set_out_shift(&sm_conf, false, false, 0); // shift left, no auto pull
     sm_config_set_fifo_join(&sm_conf, PIO_FIFO_JOIN_RX);
 
-    sm_config_set_clkdiv(&sm_conf, get_sm_clkdiv());
+    sm_config_set_clkdiv(&sm_conf, 1);
   }
 
   inline void initDMA() {

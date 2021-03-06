@@ -6,7 +6,7 @@
 .program ws2811
 .side_set 1 opt
 
-.define CYCLE_TIME_NS       5        ; cycle time of this statemachine
+.define CYCLE_TIME_NS       8        ; cycle time of this statemachine
 .define MIN_RESET_LENGTH_NS 10000    ; length of a WS2811 reset pulse
 .define PUBLIC NUM_LEDS_TO_EMULATE 2 ; number of WS2811 chips to emulate
 
@@ -15,15 +15,13 @@
 ; if y == 0, then just wait for a reset pulse
 .wrap_target
 pass_through_wait_for_next_bit:
-    set x 31            side 1
-    mov osr x           side 0
+    set x 20
+    mov osr x
     out null, 5 ; shift left 5 times
-    mov x, osr  ; x = 31 * 2^5 = 992
+    mov x, osr  ; x = 20 * 2^5 640 -> 640*2*8ns = 10240ns
 pass_through_wait_for_next_bit_loop:
     jmp pin pass_through                              ; start of next bit detected -> pass through
     jmp x-- pass_through_wait_for_next_bit_loop       ; loop until a reset pulse is detected
-
-    jmp pass_through_wait_for_next_bit
 
 ; reset pulse detected -> start reading bits
 
@@ -35,10 +33,10 @@ read_bits:
     jmp y-- read_bits_rearm_reset_counter ; y = 47 (always jumps to read_bits_rearm_reset_counter)
 
 read_bits_rearm_reset_counter:
-    set x 31
+    set x 20
     mov osr x
     out null, 5 ; shift left 5 times
-    mov x, osr  ; x = 31 * 2^5 = 992
+    mov x, osr  ; x = 20 * 2^5 640 -> 640*2*8ns = 10240ns
 
 wait_bit:             ; wait for bit to arrive
     jmp pin bit_start ; bit pulse started!
@@ -46,14 +44,22 @@ wait_bit:             ; wait for bit to arrive
     jmp read_bits     ; reset pulse detected -> read bits again
 
 bit_start:
-    set x 8            [3]
-delay_loop:
-    nop                [5]
-    jmp x-- delay_loop [5]
-    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1 - 2] ; wait 495ns to 500ns WARNING: The parentheses are absolutely necessary!
-    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1]     ; continue waiting
-    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1]     ; continue waiting
-    ;nop      [(500 / CYCLE_TIME_NS / 4) - 1]     ; continue waiting
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; delay for approximately 492ns ;
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    set x 5            [1]  ; 2 cycles
+delay_loop:                 ; + 6*(
+    nop                [4]  ;     5 cycles
+    jmp x-- delay_loop [4]  ;   + 5 cycles) = 62 cycles -> 62*8ns = 496ns
+
+    ; alternative implementation (1 instruction less, but does not allow side stepping for debugging)
+
+    ;nop               [30] ; wait 495ns to 500ns WARNING: The parentheses are absolutely necessary!
+    ;nop               [30] ; continue waiting
+
+    ; now check if this is a 1 or 0 bit
+
     in pins, 1                                   ; shift 1 or 0 into result
     wait 0 pin 0                                 ; wait for pulse end
     jmp y-- read_bits_rearm_reset_counter        ; wait for next bit
