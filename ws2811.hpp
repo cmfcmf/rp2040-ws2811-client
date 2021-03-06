@@ -100,11 +100,27 @@ private:
     pio_sm_clear_fifos(pio, sm);
     pio_sm_init(pio, sm, offset, &sm_conf);
 
-    pio_sm_exec(pio, sm, pio_encode_set(pio_x, 20));
-    pio_sm_exec(pio, sm, pio_encode_mov(pio_osr, pio_x));
-    pio_sm_exec(pio, sm, pio_encode_out(pio_null, 5));
-    pio_sm_exec(pio, sm, pio_encode_set(pio_y, 1));
+    // init
+    pio_sm_exec_wait_blocking(pio, sm, pio_encode_set(pio_y, 20));
+    pio_sm_exec_wait_blocking(pio, sm, pio_encode_mov(pio_osr, pio_y));
+    pio_sm_exec_wait_blocking(pio, sm, pio_encode_out(pio_null, 5));
 
+    // wait for first reset pulse
+    bool reset_finished = false;
+    while (!reset_finished) {
+      while (gpio_get(DATA_IN_PIN))
+        ;
+
+      const auto us = time_us_32();
+      reset_finished = true;
+      while (time_us_32() - us < 10) {
+        if (gpio_get(DATA_IN_PIN)) {
+          reset_finished = false;
+          break;
+        }
+        tight_loop_contents();
+      }
+    }
     pio_sm_set_enabled(pio, sm, true);
   }
 
