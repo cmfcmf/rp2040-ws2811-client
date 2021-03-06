@@ -26,7 +26,7 @@ private:
   uint ws2811_dma_gather_chan;
   uint ws2811_dma_ctrl_chan;
 
-  volatile uint32_t led_state[ws2811_NUM_LEDS_TO_EMULATE];
+  volatile uint32_t led_state[NUM_LEDS_TO_EMULATE];
   const volatile uint32_t *led_state_address;
 
   inline void initGPIO() {
@@ -88,7 +88,7 @@ private:
         &dma_gather_conf,
         &led_state[0], // write
         &pio->rxf[sm], // read
-        ws2811_NUM_LEDS_TO_EMULATE,
+        NUM_LEDS_TO_EMULATE,
         false
       );
     }
@@ -151,6 +151,6 @@ public:
   }
 
   const uint getNumLEDs() const {
-    return ws2811_NUM_LEDS_TO_EMULATE;
+    return NUM_LEDS_TO_EMULATE;
   }
 };

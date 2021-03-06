@@ -6,8 +6,6 @@
 .program ws2811
 ;.side_set 1 opt
 
-.define PUBLIC NUM_LEDS_TO_EMULATE 2 ; number of WS2811 chips to emulate
-
 ; This is run from C
 ; set y 20
 ; mov osr y
@@ -38,8 +36,8 @@ consume_wait_bit_loop:
     jmp y-- consume_wait_bit_loop  ; loop until a reset pulse is detected
     ; RESET
 
-    ; some bits might not have been read yet
-    ; push number of unread bits to isr
+    ; some bits/leds might not have been read yet
+    ; push number of unread bits to isr if at least 1 bit has already been pushed
     set y 24
     mov isr y
     in null 1 ; shift left 1 times
