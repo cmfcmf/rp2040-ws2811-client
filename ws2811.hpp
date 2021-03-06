@@ -26,23 +26,8 @@ private:
   uint ws2811_dma_gather_chan;
   uint ws2811_dma_ctrl_chan;
 
-  volatile uint32_t led_state[ws2811_NUM_LEDS_TO_EMULATE];
+  volatile uint32_t led_state[ws2811_NUM_LEDS_TO_EMULATE + 1];
   const volatile uint32_t *led_state_address;
-
-/*
-  void __isr dma_isr() {
-      if (dma_hw->ints0 & (1u << ws2811_dma_gather_chan)) {
-          dma_hw->ints0 = 1u << ws2811_dma_gather_chan;
-
-          for (uint i = 0; i < ws2811_NUM_LEDS_TO_EMULATE; i++) {
-              led_state[i] = led_state_internal[i];
-          }
-
-          dma_channel_set_write_addr(ws2811_dma_gather_chan, &led_state_internal[0], true);
-          // dma_channel_start(ws2811_dma_gather_chan);
-      }
-  }
-*/
 
   inline void initGPIO() {
     pio_sm_set_consecutive_pindirs(pio, sm, DATA_IN_PIN, 1, GPIO_IN);
@@ -103,7 +88,7 @@ private:
         &dma_gather_conf,
         &led_state[0], // write
         &pio->rxf[sm], // read
-        ws2811_NUM_LEDS_TO_EMULATE,
+        ws2811_NUM_LEDS_TO_EMULATE + 1,
         false
       );
     }
@@ -132,7 +117,13 @@ public:
   }
 
   const LED getLED(uint idx) const {
-    const auto val = led_state[idx];
+    auto startIdx = 0;
+    for (uint i = 0; i < ws2811_NUM_LEDS_TO_EMULATE + 1; i++) {
+      if (led_state[i] == 0xFFFFFFFF) {
+        startIdx = i + 1;
+      }
+    }
+    const auto val = led_state[(startIdx + idx) % (ws2811_NUM_LEDS_TO_EMULATE + 1)];
 
     return {
       .colors = {

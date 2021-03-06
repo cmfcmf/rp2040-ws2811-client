@@ -6,8 +6,6 @@
 .program ws2811
 .side_set 1 opt
 
-.define CYCLE_TIME_NS       8        ; cycle time of this statemachine
-.define MIN_RESET_LENGTH_NS 10000    ; length of a WS2811 reset pulse
 .define PUBLIC NUM_LEDS_TO_EMULATE 2 ; number of WS2811 chips to emulate
 
 
@@ -26,8 +24,13 @@ pass_through_wait_for_next_bit_loop:
 ; reset pulse detected -> start reading bits
 
 read_bits:
-    set y 24    side 1
-    mov osr y   side 0
+    mov isr !null ; signal start of leds
+
+    ;;;;;;;;;;;;;;;
+    ; set y to 47 ;
+    ;;;;;;;;;;;;;;;
+    set y 24
+    mov osr y
     out null, 1 ; shift left 1 times
     mov y, osr  ; y = 24 * 2^1 = 48
     jmp y-- read_bits_rearm_reset_counter ; y = 47 (always jumps to read_bits_rearm_reset_counter)
@@ -41,7 +44,8 @@ read_bits_rearm_reset_counter:
 wait_bit:             ; wait for bit to arrive
     jmp pin bit_start ; bit pulse started!
     jmp x-- wait_bit  ; if x > 0, continue waiting for next bit, otherwise fall through
-    jmp read_bits     ; reset pulse detected -> read bits again
+    ; reset pulse detected while we expected further bits
+    jmp read_bits     ; -> read bits again
 
 bit_start:
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,8 +59,8 @@ delay_loop:                 ; + 6*(
 
     ; alternative implementation (1 instruction less, but does not allow side stepping for debugging)
 
-    ;nop               [30] ; wait 495ns to 500ns WARNING: The parentheses are absolutely necessary!
-    ;nop               [30] ; continue waiting
+;    nop                 [30] ; 31 cycles
+;    nop                 [30] ; + 31 cycles = 62 cycles -> 62*8ns = 496ns
 
     ; now check if this is a 1 or 0 bit
 
