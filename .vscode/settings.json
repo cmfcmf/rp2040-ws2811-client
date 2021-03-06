@@ -22,6 +22,7 @@
       "array": "cpp",
       "deque": "cpp",
       "string": "cpp",
-      "vector": "cpp"
+      "vector": "cpp",
+      "claim.h": "c"
     },
 }

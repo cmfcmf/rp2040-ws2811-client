@@ -17,6 +17,7 @@ union LED
   } colors;
 };
 
+template <uint NUM_LEDS>
 class WS2811Client {
 private:
   PIO pio;
@@ -29,7 +30,7 @@ private:
   dma_channel_config dma_ctrl_conf;
   dma_channel_config dma_gather_conf;
 
-  volatile uint32_t led_state[NUM_LEDS_TO_EMULATE];
+  volatile uint32_t led_state[NUM_LEDS];
   const volatile uint32_t *led_state_address;
 
   inline void initGPIO() {
@@ -91,7 +92,7 @@ private:
         &dma_gather_conf,
         &led_state[0], // write
         &pio->rxf[sm], // read
-        NUM_LEDS_TO_EMULATE,
+        NUM_LEDS,
         false
       );
     }
@@ -139,8 +140,15 @@ private:
 
 public:
   WS2811Client() : led_state_address(&led_state[0]) {
-    pio = pio0;
+    if (pio_can_add_program(pio0, &ws2811_program)) {
+      pio = pio0;
+    } else if (pio_can_add_program(pio1, &ws2811_program)) {
+      pio = pio1;
+    } else {
+      panic("Cannot start WS2811 client because both PIOs do not have enough space.");
+    }
     offset = pio_add_program(pio, &ws2811_program);
+
     sm = pio_claim_unused_sm(pio, true);
     dma_gather_chan = dma_claim_unused_channel(true);
     dma_ctrl_chan = dma_claim_unused_channel(true);
@@ -155,12 +163,12 @@ public:
     return ledStateToLED(led_state[idx]);
   }
 
-  const std::array<LED, NUM_LEDS_TO_EMULATE> getLEDsAtomic() {
-    auto leds = std::array<LED, NUM_LEDS_TO_EMULATE>();
+  const std::array<LED, NUM_LEDS> getLEDsAtomic() {
+    auto leds = std::array<LED, NUM_LEDS>();
 
     channel_config_set_chain_to(&dma_gather_conf, dma_gather_chan);
     dma_channel_wait_for_finish_blocking(dma_gather_chan);
-    for (uint i = 0; i < NUM_LEDS_TO_EMULATE; i++) {
+    for (uint i = 0; i < NUM_LEDS; i++) {
       leds[i] = ledStateToLED(led_state[i]);
     }
     channel_config_set_chain_to(&dma_gather_conf, dma_ctrl_chan);
@@ -170,6 +178,6 @@ public:
   }
 
   const uint getNumLEDs() const {
-    return NUM_LEDS_TO_EMULATE;
+    return NUM_LEDS;
   }
 };
