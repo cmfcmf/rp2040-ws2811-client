@@ -1,8 +1,3 @@
-; https://datasheets.raspberrypi.org/rp2040/rp2040-datasheet.pdf
-; 3.5.6.3 Input Synchronisers
-; To protect PIO from metastabilities, each GPIO input is equipped with a standard
-; 2-flipflop synchroniser. This adds two cycles of latency to input sampling [...]
-
 .program ws2811
 ;.side_set 1 opt
 
@@ -22,8 +17,10 @@ sopt_wait_bit_loop:
 
 reset:
     ; Set x to number of bits to read
+PUBLIC num_bits_const_1:
     set x 24
     mov isr x
+PUBLIC num_bits_shift_1:
     in null 1 ; shift left 1 times
     mov x isr  ; x = 24 * 2^1 = 48
     mov isr null ; reset shift counter
@@ -38,8 +35,10 @@ consume_wait_bit_loop:
 
     ; some bits/leds might not have been read yet
     ; push number of unread bits to isr if at least 1 bit has already been pushed
+PUBLIC num_bits_const_2:
     set y 24
     mov isr y
+PUBLIC num_bits_shift_2:
     in null 1 ; shift left 1 times
     mov y isr  ; x = 24 * 2^1 = 48
     jmp y-- tmp

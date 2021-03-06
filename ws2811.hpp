@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <array>
+#include <cmath>
 #include "hardware/pio.h"
 
 #include "pico-my-project.hpp"
@@ -138,6 +139,58 @@ private:
     };
   }
 
+  const std::pair<uint, uint> getBitOffsets() const {
+    uint constPart;
+    uint shiftPart;
+
+    switch (NUM_LEDS) {
+      case 1:
+        constPart = 12;
+        shiftPart =  1;
+        break;
+      case 2:
+        constPart = 24;
+        shiftPart =  1;
+        break;
+      case 3:
+        constPart = 18;
+        shiftPart =  2;
+        break;
+      case 4:
+        constPart = 24;
+        shiftPart =  2;
+        break;
+      case 5:
+        constPart = 15;
+        shiftPart =  3;
+        break;
+      case 6:
+        constPart = 18;
+        shiftPart =  3;
+        break;
+      case 7:
+        constPart = 21;
+        shiftPart =  3;
+        break;
+      case 8:
+        constPart = 12;
+        shiftPart =  4;
+        break;
+      case 9:
+        constPart = 27;
+        shiftPart =  3;
+        break;
+      case 10:
+        constPart = 30;
+        shiftPart =  3;
+        break;
+      default:
+        panic("%u leds are not yet supported.", NUM_LEDS);
+    }
+
+    return std::make_pair(constPart, shiftPart);
+  }
+
 public:
   WS2811Client() : led_state_address(&led_state[0]) {
     if (pio_can_add_program(pio0, &ws2811_program)) {
@@ -148,6 +201,17 @@ public:
       panic("Cannot start WS2811 client because both PIOs do not have enough space.");
     }
     offset = pio_add_program(pio, &ws2811_program);
+
+    const auto parts = getBitOffsets();
+    if (parts.first * pow(2, parts.second) != NUM_LEDS * 24) {
+      // This should really be a static_assert
+      panic("Whoopsie. Apparently our calculations were incorrect :(");
+    }
+
+    pio->instr_mem[offset + ws2811_offset_num_bits_const_1] = pio_encode_set(pio_x, parts.first);
+    pio->instr_mem[offset + ws2811_offset_num_bits_const_2] = pio_encode_set(pio_y, parts.first);
+    pio->instr_mem[offset + ws2811_offset_num_bits_shift_1] = pio_encode_in(pio_null, parts.second);
+    pio->instr_mem[offset + ws2811_offset_num_bits_shift_2] = pio_encode_in(pio_null, parts.second);
 
     sm = pio_claim_unused_sm(pio, true);
     dma_gather_chan = dma_claim_unused_channel(true);
