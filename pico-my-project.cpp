@@ -26,8 +26,7 @@ void core1_entry() {
 }
 
 static void print_led_state(const LED led) {
-
-    printf("%u\t%u\t%u\n", led.colors.r, led.colors.g, led.colors.b);
+    printf("%3u\t%3u\t%3u\n", led.colors.r, led.colors.g, led.colors.b);
 }
 
 int main()
@@ -41,7 +40,7 @@ int main()
 
     while (true) {
         for (uint i = 0; i < ws2811.getNumLEDs(); i++) {
-            printf("[%u] LED %u: ", time_us_32() / 1000, i);
+            printf("[%7u] LED %u: ", time_us_32() / 1000, i);
             print_led_state(ws2811.getLED(i));
         }
         sleep_ms(500);

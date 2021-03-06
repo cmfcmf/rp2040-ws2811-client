@@ -4,79 +4,74 @@
 ; 2-flipflop synchroniser. This adds two cycles of latency to input sampling [...]
 
 .program ws2811
-.side_set 1 opt
 
 .define PUBLIC NUM_LEDS_TO_EMULATE 2 ; number of WS2811 chips to emulate
 
+; This is run from C
+; set x 20
+; mov osr x
+; out null 5 ; osr = 20 * 2^5 = 640 -> 640*2*8ns = 10240ns
+; set y 1
 
-; if y != 0, then pass through all bits until we get a reset pulse
-; if y == 0, then just wait for a reset pulse
+sopt_wait_bit:
+    mov x osr
+sopt_wait_bit_loop:
+    jmp pin sopt_handle_bit
+    jmp x-- sopt_wait_bit_loop
+    ; RESET
+
+
+reset:
 .wrap_target
-pass_through_wait_for_next_bit:
-    set x 20
-    mov osr x
-    out null, 5 ; shift left 5 times
-    mov x, osr  ; x = 20 * 2^5 640 -> 640*2*8ns = 10240ns
-pass_through_wait_for_next_bit_loop:
-    jmp pin pass_through                              ; start of next bit detected -> pass through
-    jmp x-- pass_through_wait_for_next_bit_loop       ; loop until a reset pulse is detected
-
-; reset pulse detected -> start reading bits
-
-read_bits:
-    mov isr !null ; signal start of leds
-
-    ;;;;;;;;;;;;;;;
-    ; set y to 47 ;
-    ;;;;;;;;;;;;;;;
+    ; Set y to number of bits to read
     set y 24
-    mov osr y
-    out null, 1 ; shift left 1 times
-    mov y, osr  ; y = 24 * 2^1 = 48
-    jmp y-- read_bits_rearm_reset_counter ; y = 47 (always jumps to read_bits_rearm_reset_counter)
+    mov isr y
+    in null 1 ; shift left 1 times
+    mov y isr  ; y = 24 * 2^1 = 48
+    mov isr null ; reset shift counter
 
-read_bits_rearm_reset_counter:
-    set x 20
-    mov osr x
-    out null, 5 ; shift left 5 times
-    mov x, osr  ; x = 20 * 2^5 640 -> 640*2*8ns = 10240ns
+    jmp y-- consume_wait_bit ; y = 47
 
-wait_bit:             ; wait for bit to arrive
-    jmp pin bit_start ; bit pulse started!
-    jmp x-- wait_bit  ; if x > 0, continue waiting for next bit, otherwise fall through
-    ; reset pulse detected while we expected further bits
-    jmp read_bits     ; -> read bits again
+consume_wait_bit:
+    mov x osr
+consume_wait_bit_loop:
+    jmp pin consume_handle_bit     ; start of bit detected
+    jmp x-- consume_wait_bit_loop  ; loop until a reset pulse is detected
+    ; RESET
 
-bit_start:
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ; delay for approximately 492ns ;
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; some bits might not have been read yet
+    ; push number of unread bits to isr
+; TODO: DOES NOT WORK
+;push_remaining_bits:
+;    in null 1
+;    jmp y-- push_remaining_bits
+.wrap
 
-    set x 5            [1]  ; 2 cycles
-delay_loop:                 ; + 6*(
-    nop                [4]  ;     5 cycles
-    jmp x-- delay_loop [4]  ;   + 5 cycles) = 62 cycles -> 62*8ns = 496ns
-
-    ; alternative implementation (1 instruction less, but does not allow side stepping for debugging)
-
-;    nop                 [30] ; 31 cycles
-;    nop                 [30] ; + 31 cycles = 62 cycles -> 62*8ns = 496ns
+consume_handle_bit:
+    nop                 [30] ; 31 cycles
+    nop                 [30] ; + 31 cycles = 62 cycles -> 62*8ns = 496ns
 
     ; now check if this is a 1 or 0 bit
-
-    in pins, 1                                   ; shift 1 or 0 into result
-    wait 0 pin 0                                 ; wait for pulse end
-    jmp y-- read_bits_rearm_reset_counter        ; wait for next bit
-    ; bits are all read now
-    set y 1 ; set y flag to pass through all remaining bits
-    .wrap
-
+    in pins 1                         ; shift 1 or 0 into result
+    wait 0 pin 0                      ;
+    jmp y-- consume_wait_bit          ; read next bit
+    ; ALL BITS READ
+    set y 0                           ; TODO: Why is this needed???
+    jmp sopt_wait_bit                 ;
 
 
-pass_through:
-    jmp !y skip_pass_through           ; if y == 0, do not pass through
-    set pins 1                         ;
-skip_pass_through:
-    wait 0 pin 0                       ; wait for low
-    set pins 0                         ;
-    jmp pass_through_wait_for_next_bit ; wait for next pass through bit, reset reset pulse counter
+sopt_handle_bit:
+    mov x y                           ;
+    jmp y-- bit_skip                  ;
+;;;;;;;;;
+; y = 0 ;
+;;;;;;;;;
+    set pins 1                        ;
+;;;;;;;;;
+; y = 1 ;
+;;;;;;;;;
+bit_skip:
+    wait 0 pin 0                      ; wait for low
+    set pins 0                        ;
+    mov y x
+    jmp sopt_wait_bit ; wait for next pass through bit, reset reset pulse counter
