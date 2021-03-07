@@ -8,7 +8,7 @@
 #include "pico-my-project.hpp"
 #include "ws2811.pio.h"
 
-union LED
+union RGBLED
 {
   uint32_t value;
   struct {
@@ -58,7 +58,7 @@ private:
     sm_config_set_sideset_pins(&sm_conf, SIDESET_PIN);
 #endif
 
-    sm_config_set_in_shift(&sm_conf, false, true, 24); // shift left, auto push after 24 bit
+    sm_config_set_in_shift(&sm_conf, false, true, 24);  // shift left, auto push after 24 bit
     sm_config_set_out_shift(&sm_conf, false, false, 0); // shift left, no auto pull
     sm_config_set_fifo_join(&sm_conf, PIO_FIFO_JOIN_RX);
 
@@ -78,7 +78,7 @@ private:
         dma_ctrl_chan,
         &dma_ctrl_conf,
         &dma_hw->ch[dma_gather_chan].al2_write_addr_trig, // write
-        &led_state_address,                                      // read
+        &led_state_address,                               // read
         1,
         false
       );
@@ -132,7 +132,7 @@ private:
     pio_sm_set_enabled(pio, sm, true);
   }
 
-  inline const LED ledStateToLED(const uint32_t val) const {
+  inline const RGBLED ledStateToLED(const uint32_t val) const {
     return {
       .colors = {
         .r = (uint8_t)((val >>  8) & 0xFF),
@@ -226,12 +226,28 @@ public:
     runSM();
   }
 
-  const LED getLED(uint idx) const {
+  ~WS2811Client() {
+    pio_sm_set_enabled(pio, sm, false);
+
+    channel_config_set_chain_to(&dma_gather_conf, dma_gather_chan);
+    dma_channel_abort(dma_ctrl_chan);
+    dma_channel_abort(dma_gather_chan);
+
+    dma_channel_unclaim(dma_ctrl_chan);
+    dma_channel_unclaim(dma_gather_chan);
+
+    pio_remove_program(pio, &ws2811_program, offset);
+    pio_sm_unclaim(pio, sm);
+
+    // TODO: Deinit GPIO
+  }
+
+  const RGBLED getLED(uint idx) const {
     return ledStateToLED(led_state[idx]);
   }
 
-  const std::array<LED, NUM_LEDS> getLEDsAtomic() {
-    auto leds = std::array<LED, NUM_LEDS>();
+  const std::array<RGBLED, NUM_LEDS> getLEDsAtomic() {
+    auto leds = std::array<RGBLED, NUM_LEDS>();
 
     channel_config_set_chain_to(&dma_gather_conf, dma_gather_chan);
     dma_channel_wait_for_finish_blocking(dma_gather_chan);

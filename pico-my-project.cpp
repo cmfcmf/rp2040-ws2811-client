@@ -11,8 +11,6 @@
 
 #include "ws2811.hpp"
 
-// const uint SIDESET_PIN = 12;
-
 void core1_entry() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
@@ -25,7 +23,7 @@ void core1_entry() {
     }
 }
 
-static void print_led_state(const LED led) {
+static void print_led_state(const RGBLED led) {
     printf("%3u\t%3u\t%3u\n", led.colors.r, led.colors.g, led.colors.b);
 }
 
