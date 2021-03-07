@@ -8,6 +8,11 @@
 #include "pico-my-project.hpp"
 #include "ws2811.pio.h"
 
+enum WS2811ColorMapping {
+  RGB,
+  GRB
+};
+
 union RGBLED
 {
   uint32_t value;
@@ -18,7 +23,7 @@ union RGBLED
   } colors;
 };
 
-template <uint NUM_LEDS>
+template <uint NUM_LEDS, WS2811ColorMapping MAPPING>
 class WS2811Client {
 private:
   PIO pio;
@@ -133,13 +138,24 @@ private:
   }
 
   inline const RGBLED ledStateToLED(const uint32_t val) const {
-    return {
-      .colors = {
-        .r = (uint8_t)((val >>  8) & 0xFF),
-        .g = (uint8_t)((val >> 16) & 0xFF),
-        .b = (uint8_t)((val >>  0) & 0xFF)
-      }
-    };
+    switch (MAPPING) {
+      case RGB:
+        return {
+          .colors = {
+            .r = (uint8_t)((val >> 16) & 0xFF),
+            .g = (uint8_t)((val >>  8) & 0xFF),
+            .b = (uint8_t)((val >>  0) & 0xFF)
+          }
+        };
+      case GRB:
+        return {
+          .colors = {
+            .r = (uint8_t)((val >>  8) & 0xFF),
+            .g = (uint8_t)((val >> 16) & 0xFF),
+            .b = (uint8_t)((val >>  0) & 0xFF)
+          }
+        };
+    }
   }
 
   const std::pair<uint, uint> getBitOffsets() const {

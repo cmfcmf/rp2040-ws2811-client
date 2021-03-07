@@ -34,7 +34,7 @@ int main()
 
     multicore_launch_core1(core1_entry);
 
-    auto ws2811 = WS2811Client<NUM_LEDS_TO_EMULATE>();
+    auto ws2811 = WS2811Client<NUM_LEDS_TO_EMULATE, GRB>();
 
     while (true) {
         const auto leds = ws2811.getLEDsAtomic();
