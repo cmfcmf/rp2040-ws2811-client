@@ -3,9 +3,13 @@
 #include <stdio.h>
 #include <array>
 #include <cmath>
-#include "hardware/pio.h"
 
-#include "pico-my-project.hpp"
+#include "pico/stdlib.h"
+#include "hardware/pio.h"
+#include "hardware/dma.h"
+#include "hardware/clocks.h"
+
+#include "main.hpp"
 #include "ws2811.pio.h"
 
 enum WS2811ColorMapping {

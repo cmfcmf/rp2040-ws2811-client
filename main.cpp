@@ -1,13 +1,7 @@
 #include <stdio.h>
-#include <string.h> // memcpy
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
-#include "pico/mutex.h"
-#include "hardware/pio.h"
-#include "hardware/clocks.h"
-#include "hardware/dma.h"
-#include "hardware/irq.h"
 
 #include "ws2811.hpp"
 
