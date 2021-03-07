@@ -158,11 +158,11 @@ private:
     }
   }
 
-  const std::pair<uint, uint> getBitOffsets() const {
-    uint constPart;
-    uint shiftPart;
+  static constexpr std::pair<uint, uint> getBitOffsets(const uint numLeds) {
+    uint constPart = 0;
+    uint shiftPart = 0;
 
-    switch (NUM_LEDS) {
+    switch (numLeds) {
       case 1:
         constPart = 12;
         shiftPart =  1;
@@ -203,8 +203,6 @@ private:
         constPart = 30;
         shiftPart =  3;
         break;
-      default:
-        panic("%u leds are not yet supported.", NUM_LEDS);
     }
 
     return std::make_pair(constPart, shiftPart);
@@ -221,11 +219,8 @@ public:
     }
     offset = pio_add_program(pio, &ws2811_program);
 
-    const auto parts = getBitOffsets();
-    if (parts.first * pow(2, parts.second) != NUM_LEDS * 24) {
-      // This should really be a static_assert
-      panic("Whoopsie. Apparently our calculations were incorrect :(");
-    }
+    constexpr auto parts = WS2811Client::getBitOffsets(NUM_LEDS);
+    static_assert(parts.first * pow(2, parts.second) == NUM_LEDS * 24);
 
     pio->instr_mem[offset + ws2811_offset_num_bits_const_1] = pio_encode_set(pio_x, parts.first);
     pio->instr_mem[offset + ws2811_offset_num_bits_const_2] = pio_encode_set(pio_y, parts.first);
